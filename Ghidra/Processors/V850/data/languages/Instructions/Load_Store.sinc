@@ -286,7 +286,7 @@
 # SAR imm5, reg2 - rrrrr010101iiiii
 :sar op0004, R1115 is op0510=0x15 & op0004 & R1115
 {
-	shift_right_arith(R1115, R1115, op0004:5);
+	shift_right_arith(R1115, R1115, op0004);
 }
 
 # SAR reg1, reg2, reg3 - rrrrr111111RRRRR|wwwww00010100010
@@ -316,7 +316,7 @@
 # SHL imm5, reg2 - rrrrr010110iiiii
 :shl op0004, R1115 is op0510=0x16 & op0004 & R1115
 {
-	shift_left_logic(R1115, R1115, op0004:5);
+	shift_left_logic(R1115, R1115, op0004);
 }
 
 # SHL reg1, reg2, reg3 - rrrrr111111RRRRR|wwwww00011000010
@@ -334,7 +334,7 @@
 # SHR imm5, reg2 - rrrrr010100iiiii
 :shr op0004, R1115 is op0510=0x14 & op0004 & R1115
 {
-	shift_right_logic(R1115, R1115, op0004:5);
+	shift_right_logic(R1115, R1115, op0004);
 }
 
 # SHR reg1, reg2, reg3 - rrrrr111111RRRRR|wwwww00010000010
