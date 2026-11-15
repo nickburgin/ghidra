@@ -175,69 +175,79 @@
 #####################################################
 
 
-define pcodeop __saturate;
+# Saturated add and subtract (V850E1 manual U14559EJ3V1UM p111-114).
+# CY and OV come from the wrapped operation. On overflow the result is 7FFFFFFFH when the
+# wrapped sum is negative and 80000000H when it is not. S and Z come from the saturated result.
+# SAT is sticky: OV sets it, nothing here clears it.
+macro saturate_result(res, wrapped)
+{
+	local limit:4 = 0x7FFFFFFF + zext(wrapped s>= 0);
+	either_or(res, $(OV), limit, wrapped);
+	$(SAT) = $(SAT) || $(OV);
+	set_S(res);
+	set_Z(res);
+}
+
+macro saturate_add(res, var1, var2)
+{
+	local A:4 = var1;
+	local B:4 = var2;
+	local wrapped:4 = A + B;
+	$(CY) = carry(A, B);
+	$(OV) = scarry(A, B);
+	saturate_result(res, wrapped);
+}
+
+macro saturate_sub(res, var1, var2)
+{
+	local A:4 = var1;
+	local B:4 = var2;
+	local wrapped:4 = A - B;
+	$(CY) = A < B;
+	$(OV) = sborrow(A, B);
+	saturate_result(res, wrapped);
+}
 
 # SATADD reg1, reg2 - rrrrr000110RRRRR
 :satadd R0004, R1115 is op0510=0x06 & R0004 & R1115 & op1115!=0
 {
-	set_general_flags_pos(R1115, R0004);
-	$(SAT) = $(SAT) || $(OV);
-	R1115 = R1115 + R0004;
-	__saturate(R1115);
+	saturate_add(R1115, R1115, R0004);
 }
 
 #SATADD imm5, reg2 - rrrrr010001iiiii
 :satadd s0004, R1115 is op0510=0x11 & s0004 & R1115 & op1115!=0
 {
-	set_general_flags_pos(R1115, s0004);
-	$(SAT) = $(SAT) || $(OV);
-	R1115 = R1115 + s0004;
-	__saturate(R1115);
+	saturate_add(R1115, R1115, s0004);
 }
 
 # SATADD reg1, reg2, reg3 - rrrrr111111RRRRR|wwwww01110111010
 :satadd R0004, R1115, R2731 is op0510=0x3F & R0004 & R1115; op1626=0x3BA & R2731
 {
-	set_general_flags_pos(R1115, R0004);
-	$(SAT) = $(SAT) || $(OV);
-	R2731 = R1115 + R0004;
-	__saturate(R2731);
+	saturate_add(R2731, R1115, R0004);
 }
 
 # SATSUB reg1, reg2 - rrrrr000101RRRRR
 :satsub R0004, R1115 is op0510=0x05 & R0004 & R1115 & op1115!=0 
 {
-	set_general_flags_neg(R1115, R0004);
-	$(SAT) = $(SAT) || $(OV);
-	R1115 = R1115 - R0004;
-	__saturate(R1115);
+	saturate_sub(R1115, R1115, R0004);
 }
 
 # SATSUB reg1, reg2, reg3 - rrrrr111111RRRRR|wwwww01110011010
 :satsub R0004, R1115, R2731 is op0510=0x3F & R0004 & R1115; op1626=0x39A & R2731
 {
-	set_general_flags_neg(R1115, R0004);
-	$(SAT) = $(SAT) || $(OV);
-	R2731 = R1115 - R0004;
-	__saturate(R2731);
+	saturate_sub(R2731, R1115, R0004);
 }
 
 # SATSUBI imm16, reg1, reg2
 :satsubi s1631, R0004, R1115 is op0510=0x33 & op1115!=0 & R0004 & R1115; s1631
 {
-	set_general_flags_neg(R0004, s1631);
-	$(SAT) = $(SAT) || $(OV);
-	R1115 = R0004 - s1631;
-	__saturate(R1115);
+	saturate_sub(R1115, R0004, s1631);
 }
 
 # SATSUBR reg1, reg2
 :satsubr R0004, R1115 is op0510=0x04 & R0004 & R1115 & op1115!=0
 {
-	set_general_flags_neg(R0004, R1115);
-	$(SAT) = $(SAT) || $(OV);
-	R1115 = R0004 - R1115;
-	__saturate(R1115);
+	saturate_sub(R1115, R0004, R1115);
 }
 
 
