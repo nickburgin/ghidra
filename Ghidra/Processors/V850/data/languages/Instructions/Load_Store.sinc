@@ -95,7 +95,7 @@
 }
 
 # SLD.BU disp4[ep], reg2 - rrrrr0000110dddd
-:sld.bu op0003[ep], R1115 is op0410=0x06 & R1115 & op0003 & ep
+:sld.bu op0003[ep], R1115 is op0410=0x06 & op1115!=0 & R1115 & op0003 & ep
 {
 	local adr:4 = ep + op0003;
 	R1115 = zext(*:1 adr);
@@ -110,7 +110,7 @@
 }
 
 # SLD.HU disp5[ep], reg2 - rrrrr0000111dddd
-:sld.hu disp5[ep], R1115 is op0410=0x07 & R1115 & op0003 & ep
+:sld.hu disp5[ep], R1115 is op0410=0x07 & op1115!=0 & R1115 & op0003 & ep
 [ disp5 = op0003 * 2; ]
 {
 	local adr:4 = ep + disp5;
