@@ -257,61 +257,123 @@ macro saturate_sub(res, var1, var2)
 #####################################################
 
 
+# Divide rules from the V850E1 manual (U14559EJ3V1UM, p71 to p75):
+# - Z and S come from the quotient. A divide that does not overflow clears OV.
+# - A zero divisor sets OV, and the quotient is undefined. The manual does not give
+#   reg3, Z or S for this case, so they follow the gdb sim: reg2, reg3, Z and S keep
+#   their values.
+# - DIV and DIVH: 0x80000000 / -1 sets OV, and the quotient is 0x80000000. The manual
+#   does not give reg3, Z or S, so they follow the gdb sim: reg3 = 0, Z = 0, S = 1.
+#   DIVU and DIVHU set OV only for a zero divisor.
+# - DIVH and DIVHU use the low halfword of reg1, extended with the sign (DIVH) or
+#   with zeros (DIVHU).
+# - When reg2 and reg3 are the same register, it holds the remainder, so the
+#   remainder is written last.
+# The branches keep the p-code divide away from the inputs for which its result is
+# undefined. Some p-code emulators raise an exception for them.
+
 # DIV reg1, reg2, reg3 - rrrrr111111RRRRR|wwwww01011000000
 :div R0004, R1115, R2731 is op0510=0x3F & R0004 & R1115; op1626=0x2C0 & R2731
 {
+	$(OV) = 1;
+	if (R0004 == 0) goto <end>;
+	if (R1115 == 0x80000000 && R0004 == 0xFFFFFFFF) goto <overflow>;
 	local quot:4 = R1115 s/ R0004;
 	local mod:4 = R1115 s% R0004;
-	$(OV) = ((R1115 == 0x80000000 && R0004 == 0xFFFFFFFF) || R0004 == 0x0);
-	set_Z(R1115);
-	set_S(R1115);
+	$(OV) = 0;
+	set_Z(quot);
+	set_S(quot);
 	R1115 = quot;
- 	R2731 = mod;
+	R2731 = mod;
+	goto <end>;
+
+	<overflow>
+	$(Z) = 0;
+	$(S) = 1;
+	R1115 = 0x80000000;
+	R2731 = 0;
+
+	<end>
 }
 
 # DIVH reg1, reg2 - rrrrr000010RRRRR
 :divh R0004, R1115 is op0510=0x02 & R0004 & R1115
 {
-	$(OV) = ((R1115 == 0x80000000 && R0004 == 0xFFFFFFFF) || R0004 == 0x0);
-	R1115 = R1115 / R0004;
-	set_Z(R1115);
-	set_S(R1115);
+	local divisor:4 = sext(R0004:2);
+	$(OV) = 1;
+	if (divisor == 0) goto <end>;
+	if (R1115 == 0x80000000 && divisor == 0xFFFFFFFF) goto <overflow>;
+	local quot:4 = R1115 s/ divisor;
+	$(OV) = 0;
+	set_Z(quot);
+	set_S(quot);
+	R1115 = quot;
+	goto <end>;
+
+	<overflow>
+	$(Z) = 0;
+	$(S) = 1;
+	R1115 = 0x80000000;
+
+	<end>
 }
 
 # DIVH reg1, reg2, reg3 - rrrrr111111RRRRR|wwwww01010000000
 :divh R0004, R1115, R2731 is op0510=0x3F & R0004 & R1115; op1626=0x280 & R2731
 {
-	local quot:4 = R1115 s/ sext(R0004:2);
-	local mod:4 = R1115 s% sext(R0004:2);
-	$(OV) = ((R1115 == 0x80000000 && R0004 == 0xFFFFFFFF) || R0004 == 0x0);
-	set_Z(R1115);
-	set_S(R1115);
+	local divisor:4 = sext(R0004:2);
+	$(OV) = 1;
+	if (divisor == 0) goto <end>;
+	if (R1115 == 0x80000000 && divisor == 0xFFFFFFFF) goto <overflow>;
+	local quot:4 = R1115 s/ divisor;
+	local mod:4 = R1115 s% divisor;
+	$(OV) = 0;
+	set_Z(quot);
+	set_S(quot);
 	R1115 = quot;
 	R2731 = mod;
+	goto <end>;
+
+	<overflow>
+	$(Z) = 0;
+	$(S) = 1;
+	R1115 = 0x80000000;
+	R2731 = 0;
+
+	<end>
 }
 
 # DIVHU reg1, reg2, reg3 - rrrrr111111RRRRR|wwwww01010000010
 :divhu R0004, R1115, R2731 is op0510=0x3F & R0004 & R1115; op1626=0x282 & R2731
 {
-	local quot:4 = R1115 / sext(R0004:2);
-	local mod:4 = R1115 % sext(R0004:2);
-	$(OV) = (R0004 == 0);
-	set_Z(R1115);
-	set_S(R1115);
+	local divisor:4 = zext(R0004:2);
+	$(OV) = 1;
+	if (divisor == 0) goto <end>;
+	local quot:4 = R1115 / divisor;
+	local mod:4 = R1115 % divisor;
+	$(OV) = 0;
+	set_Z(quot);
+	set_S(quot);
 	R1115 = quot;
 	R2731 = mod;
+
+	<end>
 }
 
 # DIVU reg1, reg2, reg3 - rrrrr111111RRRRR|wwwww01011000010
 :divu R0004, R1115, R2731 is op0510=0x3F & R0004 & R1115; op1626=0x2C2 & R2731
 {
+	$(OV) = 1;
+	if (R0004 == 0) goto <end>;
 	local quot:4 = R1115 / R0004;
 	local mod:4 = R1115 % R0004;
-	$(OV) = (R0004 == 0);
-	set_Z(R1115);
-	set_S(R1115);
+	$(OV) = 0;
+	set_Z(quot);
+	set_S(quot);
 	R1115 = quot;
 	R2731 = mod;
+
+	<end>
 }
 
 
