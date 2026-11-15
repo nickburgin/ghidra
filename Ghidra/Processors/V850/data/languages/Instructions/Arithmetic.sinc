@@ -42,9 +42,10 @@
 }
 
 # MULHI imm16, reg1, reg2 - rrrrr110111RRRRR|iiiiiiiiiiiiiiii
+# Only the low halfword of reg1 is a factor (V850E1 manual p96, p97).
 :mulhi s1631, R0004, R1115 is op0510=0x37 & R1115 & R0004; s1631
 {
-	R1115 = R0004 * s1631;
+	R1115 = sext(R0004:2) * s1631;
 }
 
 # MULU reg1, reg2, reg3 - rrrrr111111RRRRR|wwwww01000100010
